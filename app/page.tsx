@@ -1,101 +1,162 @@
-import Image from "next/image";
+import { supabase } from "@/app/lib/supabase";
+import { FilterOptions, Invoice, SortOptions } from "@/app/lib/types";
+import Dropdown from "@/app/ui/dropdown";
+import InvoiceCard from "@/app/ui/InvoiceCard";
+import { PostgrestError } from "@supabase/supabase-js";
+import { redirect } from "next/navigation";
+// import { Invoice } from "@/app/lib/types";
+export default async function Home(props: {
+  searchParams: Promise<{
+    filter: string;
+    sort: string;
+  }>;
+}) {
+  const filterOptions = [
+    {
+      textDisplay: "All",
+      value: "all",
+    },
+    {
+      textDisplay: "Pending",
+      value: "pending",
+    },
+    {
+      textDisplay: "Paid",
+      value: "paid",
+    },
+  ];
 
-export default function Home() {
+  const sortOptions = [
+    {
+      textDisplay: "Newest",
+      value: "DateDesc",
+    },
+    {
+      textDisplay: "Oldest",
+      value: "DateAsc",
+    },
+    {
+      textDisplay: "Low to High Amount",
+      value: "AmountAsc",
+    },
+    {
+      textDisplay: "High to Low Amount",
+      value: "AmountDesc",
+    },
+  ];
+
+  const searchParams = await props.searchParams;
+  if (!searchParams.filter && !searchParams.sort) {
+    redirect("/?filter=all&sort=DateAsc");
+  }
+
+  if (
+    !Object.values(FilterOptions).includes(searchParams.filter as FilterOptions)
+  ) {
+    redirect("/?filter=all&sort=DateAsc");
+  }
+
+  if (!Object.values(SortOptions).includes(searchParams.sort as SortOptions)) {
+    redirect("/?filter=all&sort=DateAsc");
+  }
+
+  let error: PostgrestError | null = null;
+
+  const getInvoices = async (
+    filter: FilterOptions,
+    sortField: string,
+    sortOrder: string
+  ) => {
+    if (filter === "all") {
+      const { data, error: dbError } = await supabase
+        .from("invoices")
+        .select("*")
+        .order(sortField, { ascending: sortOrder === "asc" });
+      error = dbError;
+      return data as Invoice[];
+    } else {
+      const { data, error: dbError } = await supabase
+        .from("invoices")
+        .select("*")
+        .eq("status", filter)
+        .order(sortField, { ascending: sortOrder === "asc" });
+      error = dbError;
+      return data as Invoice[];
+    }
+  };
+
+  let data: Invoice[] = [];
+
+  // setup a switch case to handle the different sorting options
+  switch (searchParams.sort) {
+    case "DateAsc":
+      data = await getInvoices(
+        searchParams.filter as FilterOptions,
+        "created_at",
+        "asc"
+      );
+      break;
+    case "DateDesc":
+      data = await getInvoices(
+        searchParams.filter as FilterOptions,
+        "created_at",
+        "desc"
+      );
+      break;
+    case "AmountAsc":
+      data = await getInvoices(
+        searchParams.filter as FilterOptions,
+        "amount",
+        "asc"
+      );
+      break;
+    case "AmountDesc":
+      data = await getInvoices(
+        searchParams.filter as FilterOptions,
+        "amount",
+        "desc"
+      );
+      break;
+  }
+
+  // const { data, error } = await supabase.from("invoices").select("*");
+
+  if (error) {
+    throw new Error((error as PostgrestError).message);
+  }
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <div className="w-full h-screen">
+      <div className="flex flex-col lg:flex-row items-center  justify-center p-3 lg:justify-around">
+        <h1 className=" text-3xl font-bold px-4 text-center py-4">Invoices</h1>
+        <div className="flex items-center justify-center grow gap-3 p-2">
+          <div className="text-base lg:text-lg font-semibold text-black ">
+            Filters:
+          </div>
+          <Dropdown
+            dropName="filter"
+            className="px-2 py-4"
+            selectOptions={filterOptions}
+          />
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+        <div className="flex items-center justify-center grow gap-3 p-2">
+          <div className="text-base lg:text-lg font-semibold text-black ">
+            Sort:
+          </div>
+          <Dropdown
+            dropName="sort"
+            className="px-2 py-4"
+            selectOptions={sortOptions}
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+        </div>
+      </div>
+
+      <div className="w-full h-screen grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3  gap-4 p-4">
+        {data &&
+          (data as Invoice[]).map((invoice) => (
+            <InvoiceCard key={invoice.id} invoice={invoice} />
+          ))}
+      </div>
     </div>
   );
 }
