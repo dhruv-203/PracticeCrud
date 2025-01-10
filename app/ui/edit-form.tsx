@@ -222,7 +222,7 @@ export default function EditForm({ invoice }: { invoice: Invoice }) {
             )}
             disabled={isPending}
           >
-            Create Invoice
+            {isPending ? "Saving..." : "Save Changes"}
           </button>
         </div>
       </div>

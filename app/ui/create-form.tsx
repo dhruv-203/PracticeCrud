@@ -18,7 +18,7 @@ export default function CreateForm() {
     if (data?.dbError) {
       toast.error(data.dbError);
     }
-    if (data?.message ) {
+    if (data?.message) {
       router.back();
     }
     return data as State;
@@ -210,7 +210,7 @@ export default function CreateForm() {
             )}
             disabled={isPending}
           >
-            Create Invoice
+            {isPending ? "Creating..." : "Create Invoice"}
           </button>
         </div>
       </div>
